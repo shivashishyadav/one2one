@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Room: {{ room_name }}</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0f0f0f; color: #e5e5e5;
+            height: 100vh; display: flex; align-items: center; justify-content: center;
+        }
+        .room {
+            width: 100%; max-width: 560px; height: 92vh;
+            display: flex; flex-direction: column;
+            background: #1a1a1a; border-radius: 16px;
+            overflow: hidden; border: 1px solid #2a2a2a;
+        }
+
+        /* Header */
+        .header {
+            padding: 14px 18px; background: #111;
+            border-bottom: 1px solid #2a2a2a;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .dot {
+            width: 10px; height: 10px; border-radius: 50%;
+            background: #444; transition: all 0.4s; flex-shrink: 0;
+        }
+        .dot.waiting   { background: #f59e0b; box-shadow: 0 0 6px #f59e0b88; }
+        .dot.connected { background: #22c55e; box-shadow: 0 0 6px #22c55e88; }
+        .dot.rejected  { background: #ef4444; }
+        .header-info { flex: 1; min-width: 0; }
+        .header-title {
+            font-weight: 600; font-size: 15px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .header-sub { font-size: 11px; color: #555; margin-top: 2px; }
+
+        .back-btn {
+            background: none; border: none; color: #555; font-size: 18px;
+            cursor: pointer; padding: 4px 8px; border-radius: 8px;
+            transition: color 0.2s, background 0.2s; flex-shrink: 0;
+            text-decoration: none; display: flex; align-items: center;
+        }
+        .back-btn:hover { background: #222; color: #e5e5e5; }
+
+        #notif-btn {
+            background: none; border: 1px solid #2a2a2a; cursor: pointer;
+            color: #666; font-size: 12px; padding: 5px 10px;
+            border-radius: 20px; transition: all 0.2s; flex-shrink: 0;
+            display: flex; align-items: center; gap: 5px; font-weight: 500;
+        }
+        #notif-btn:hover { background: #222; color: #e5e5e5; border-color: #444; }
+        #notif-btn.enabled {
+            color: #22c55e; border-color: #22c55e44; background: #22c55e11;
+        }
+        #notif-btn.enabled:hover { background: #ef444411; color: #ef4444; border-color: #ef444444; }
+
+        /* Status */
+        #status-banner {
+            padding: 8px 18px; font-size: 12px; text-align: center;
+            background: #0d0d0d; color: #555;
+            border-bottom: 1px solid #1f1f1f;
+            min-height: 34px; display: flex; align-items: center; justify-content: center;
+        }
+        #status-banner.waiting   { color: #f59e0b; }
+        #status-banner.connected { color: #22c55e; }
+        #status-banner.rejected  { color: #ef4444; }
+
+        /* Messages */
+        #messages {
+            flex: 1; overflow-y: auto; padding: 16px;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        #messages::-webkit-scrollbar { width: 3px; }
+        #messages::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 4px; }
+
+        .bubble-wrap { display: flex; flex-direction: column; max-width: 72%; }
+        .bubble-wrap.you  { align-self: flex-end; align-items: flex-end; }
+        .bubble-wrap.them { align-self: flex-start; align-items: flex-start; }
+
+        .bubble {
+            padding: 9px 13px; border-radius: 14px;
+            font-size: 15px; line-height: 1.45; word-break: break-word;
+        }
+        .bubble-wrap.you  .bubble { background: #2563eb; color: #fff; border-bottom-right-radius: 4px; }
+        .bubble-wrap.them .bubble { background: #262626; color: #e5e5e5; border-bottom-left-radius: 4px; }
+
+        .tick { font-size: 11px; margin-top: 3px; color: #555; transition: color 0.3s; }
+        .tick.seen { color: #2563eb; }
+        .ts   { font-size: 10px; color: #444; margin-top: 2px; }
+
+        .sys {
+            align-self: center; font-size: 11px; color: #3a3a3a;
+            font-style: italic; text-align: center; padding: 4px 0;
+        }
+
+        /* Input */
+        .input-area {
+            padding: 12px 14px; background: #111;
+            border-top: 1px solid #1f1f1f;
+            display: flex; gap: 8px; align-items: center;
+        }
+        #msg-input {
+            flex: 1; background: #1f1f1f; border: 1px solid #2a2a2a;
+            border-radius: 10px; color: #e5e5e5; font-size: 15px;
+            padding: 10px 13px; outline: none; transition: border-color 0.2s;
+        }
+        #msg-input:focus    { border-color: #2563eb; }
+        #msg-input::placeholder { color: #444; }
+
+        #send-btn {
+            background: #2563eb; border: none; border-radius: 10px;
+            color: white; width: 42px; height: 42px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; transition: background 0.2s;
+        }
+        #send-btn:hover { background: #1d4ed8; }
+    </style>
+</head>
+<body>
+<div class="room">
+
+    <div class="header">
+        <a href="/" class="back-btn" title="All rooms">←</a>
+        <div class="dot" id="status-dot"></div>
+        <div class="header-info">
+            <div class="header-title">{{ room_name }}</div>
+            <div class="header-sub">2 people max · expires in 2h · private</div>
+        </div>
+        <button id="notif-btn" title="Enable notifications">
+            <span id="notif-icon">🔔</span>
+            <span id="notif-label">Notify</span>
+        </button>
+    </div>
+
+    <div id="status-banner">Connecting...</div>
+    <div id="messages"></div>
+
+    <div class="input-area">
+        <input type="text" id="msg-input"
+               placeholder="Type a message..."
+               autocomplete="off" />
+        <button id="send-btn">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2.3"
+                 stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+        </button>
+    </div>
+</div>
+
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script>
+const ROOM_NAME      = "{{ room_name }}";
+const VAPID_PUB_KEY  = "{{ vapid_public_key }}";
+
+let mySlot    = null;
+let swReg     = null;
+let notifsOn  = false;
+let unseenIds = [];
+
+const messagesEl = document.getElementById('messages');
+const input      = document.getElementById('msg-input');
+const sendBtn    = document.getElementById('send-btn');
+const banner     = document.getElementById('status-banner');
+const dot        = document.getElementById('status-dot');
+const notifBtn   = document.getElementById('notif-btn');
+
+const socket = io(window.location.origin, {
+    transports: ['polling', 'websocket'], upgrade: true
+});
+
+// ── Helpers ──────────────────────────────────
+function setStatus(type, text) {
+    banner.className = type;
+    banner.textContent = text;
+    dot.className = 'dot ' + type;
+}
+
+function formatTime(ts) {
+    return new Date(ts * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function urlB64ToUint8Array(b64) {
+    const pad = '='.repeat((4 - b64.length % 4) % 4);
+    const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+    return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+// ── Render ───────────────────────────────────
+function renderHistory(messages) {
+    messagesEl.innerHTML = '';
+    if (messages.length > 0) addSys('— last 2 hours —');
+    messages.forEach(m => addBubble(m, false));
+    scrollBottom();
+}
+
+function addBubble(msg, scroll = true) {
+    const side = msg.sender === mySlot ? 'you' : 'them';
+    const wrap = document.createElement('div');
+    wrap.className = 'bubble-wrap ' + side;
+    wrap.dataset.msgId = msg.id;
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.textContent = msg.text;
+
+    const tsEl = document.createElement('div');
+    tsEl.className = 'ts';
+    tsEl.textContent = formatTime(msg.ts);
+
+    wrap.appendChild(bubble);
+    wrap.appendChild(tsEl);
+
+    if (side === 'you') {
+        const tick = document.createElement('div');
+        tick.className = 'tick' + (msg.seen ? ' seen' : '');
+        tick.textContent = msg.seen ? '✓✓ Seen' : '✓ Sent';
+        wrap.appendChild(tick);
+    }
+
+    messagesEl.appendChild(wrap);
+    if (scroll) scrollBottom();
+
+    if (side === 'them' && !msg.seen) {
+        unseenIds.push(msg.id);
+        if (document.visibilityState === 'visible') flushSeen();
+    }
+}
+
+function updateTicks(ids) {
+    ids.forEach(id => {
+        const wrap = messagesEl.querySelector(`[data-msg-id="${id}"]`);
+        if (!wrap) return;
+        const tick = wrap.querySelector('.tick');
+        if (tick) { tick.className = 'tick seen'; tick.textContent = '✓✓ Seen'; }
+    });
+}
+
+function addSys(text) {
+    const div = document.createElement('div');
+    div.className = 'sys'; div.textContent = text;
+    messagesEl.appendChild(div);
+}
+
+function scrollBottom() { messagesEl.scrollTop = messagesEl.scrollHeight; }
+
+// ── Seen ─────────────────────────────────────
+function flushSeen() {
+    if (!unseenIds.length) return;
+    socket.emit('mark-seen', { room: ROOM_NAME, ids: [...unseenIds] });
+    unseenIds = [];
+}
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') flushSeen();
+});
+
+// ── Send ─────────────────────────────────────
+function sendMessage() {
+    const text = input.value.trim();
+    if (!text) return;
+    socket.emit('chat-message', { room: ROOM_NAME, text });
+    input.value = '';
+    input.focus();
+}
+sendBtn.addEventListener('click', sendMessage);
+input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+
+// ── Socket events ─────────────────────────────
+socket.on('connect', () => {
+    setStatus('waiting', 'Joining room...');
+    // Send any previously assigned slot so server can restore it
+    const savedSlot = localStorage.getItem('slot_' + ROOM_NAME) || null;
+    socket.emit('join', { room: ROOM_NAME, preferred_slot: savedSlot });
+});
+
+socket.on('connect_error', err => setStatus('rejected', 'Connection failed: ' + err.message));
+socket.on('disconnect',    ()  => setStatus('', 'Disconnected. Refresh to reconnect.'));
+
+socket.on('rejected', data => {
+    setStatus('rejected', '🔒' + data.reason);
+    addSys('Room is full. Try again later.');
+});
+
+socket.on('history', data => {
+    mySlot = data.your_slot;
+    // Remember our slot in this room so reconnects restore it
+    localStorage.setItem('slot_' + ROOM_NAME, mySlot);
+    renderHistory(data.messages);
+    if (swReg && notifsOn) pushSubscribe();
+});
+
+socket.on('status',        data => setStatus(data.type, data.text));
+socket.on('message-sent',  msg  => addBubble(msg));
+socket.on('chat-message',  msg  => addBubble(msg));
+socket.on('messages-seen', data => updateTicks(data.ids));
+
+// ── Push notifications ────────────────────────
+const notifIcon  = document.getElementById('notif-icon');
+const notifLabel = document.getElementById('notif-label');
+
+function setNotifUI(on) {
+    notifsOn = on;
+    if (on) {
+        notifBtn.classList.add('enabled');
+        notifBtn.title = 'Click to disable notifications';
+        notifIcon.textContent  = '🔔';
+        notifLabel.textContent = 'On';
+    } else {
+        notifBtn.classList.remove('enabled');
+        notifBtn.title = 'Click to enable notifications';
+        notifIcon.textContent  = '🔕';
+        notifLabel.textContent = 'Notify';
+    }
+}
+
+async function pushSubscribe() {
+    if (!swReg || !mySlot) return;
+    try {
+        let sub = await swReg.pushManager.getSubscription();
+        if (!sub) {
+            sub = await swReg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlB64ToUint8Array(VAPID_PUB_KEY)
+            });
+        }
+        // Tell server: active subscription for this room+slot
+        await fetch('/save-subscription', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ room: ROOM_NAME, slot: mySlot, subscription: sub.toJSON() })
+        });
+        setNotifUI(true);
+        localStorage.setItem('notif_' + ROOM_NAME, '1');
+    } catch(e) {
+        console.warn('Push subscribe failed:', e);
+        alert('Could not subscribe to notifications. Make sure you are on HTTPS.');
+    }
+}
+
+async function pushUnsubscribe() {
+    try {
+        // Tell server to clear this room+slot subscription
+        await fetch('/save-subscription', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ room: ROOM_NAME, slot: mySlot, subscription: null })
+        });
+        // Unsubscribe from browser push (keeps SW registered)
+        if (swReg) {
+            const sub = await swReg.pushManager.getSubscription();
+            if (sub) await sub.unsubscribe();
+        }
+    } catch(e) {
+        console.warn('Unsubscribe error:', e);
+    } finally {
+        setNotifUI(false);
+        localStorage.removeItem('notif_' + ROOM_NAME);
+    }
+}
+
+async function toggleNotifications() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        alert('Your browser does not support push notifications.'); return;
+    }
+
+    if (notifsOn) {
+        // Currently ON → turn OFF
+        await pushUnsubscribe();
+    } else {
+        // Currently OFF → turn ON
+        const perm = await Notification.requestPermission();
+        if (perm === 'denied') {
+            alert('Notifications are blocked in your browser settings.\n\nTo enable: click the lock icon in the address bar → Notifications → Allow.');
+            return;
+        }
+        if (perm !== 'granted') return;  // user dismissed
+        await pushSubscribe();
+    }
+}
+
+notifBtn.addEventListener('click', toggleNotifications);
+
+// Register SW on page load and restore previous preference
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/static/sw.js')
+        .then(reg => {
+            swReg = reg;
+            // Check if user had notifications on for this room before
+            const wasOn = localStorage.getItem('notif_' + ROOM_NAME) === '1';
+            if (wasOn) {
+                // Verify browser still has an active subscription
+                return reg.pushManager.getSubscription().then(sub => {
+                    if (sub) {
+                        setNotifUI(true);
+                    } else {
+                        // Sub expired — clear preference
+                        localStorage.removeItem('notif_' + ROOM_NAME);
+                        setNotifUI(false);
+                    }
+                });
+            } else {
+                setNotifUI(false);
+            }
+        })
+        .catch(e => console.warn('SW registration failed:', e));
+} else {
+    // SW not supported — hide the button
+    notifBtn.style.display = 'none';
+}
+</script>
+</body>
+</html>

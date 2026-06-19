@@ -172,7 +172,7 @@ const dot        = document.getElementById('status-dot');
 const notifBtn   = document.getElementById('notif-btn');
 
 const socket = io(window.location.origin, {
-    transports: ['polling', 'websocket'], upgrade: true
+    transports: ['polling']
 });
 
 // ── Helpers ──────────────────────────────────

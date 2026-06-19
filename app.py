@@ -1,6 +1,3 @@
-import eventlet
-eventlet.monkey_patch()
-
 import os
 import sqlite3
 import json
@@ -67,6 +64,7 @@ def close_db(e=None):
 
 
 def init_db():
+    print("DB PATH:", os.path.abspath(DB_PATH))
     with sqlite3.connect(DB_PATH) as db:
         db.execute("""
             CREATE TABLE IF NOT EXISTS messages (
@@ -80,6 +78,7 @@ def init_db():
         """)
         db.execute("CREATE INDEX IF NOT EXISTS idx_room_ts ON messages(room, ts)")
         db.commit()
+    print("Database initialized.")
 
 
 def save_message(room, sender, text):
@@ -132,6 +131,8 @@ def purge_loop():
 
 threading.Thread(target=purge_loop, daemon=True).start()
 
+
+init_db()
 
 # ── Push notification ─────────────────────────
 
@@ -331,7 +332,7 @@ def handle_mark_seen(data):
 
 
 if __name__ == "__main__":
-    init_db()
+    # init_db()
     port = int(os.environ.get("PORT", 5000))
     socketio.run(
         app,

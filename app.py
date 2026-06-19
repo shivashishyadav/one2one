@@ -18,7 +18,7 @@ socketio = SocketIO(
     app,
     async_mode="threading",
     cors_allowed_origins="*",
-    logger=False,
+    logger=True,
     engineio_logger=False,
 )
 
@@ -199,9 +199,13 @@ def save_subscription():
 
 # ── Socket events ─────────────────────────────
 
+@socketio.on("connect")
+def test_connect():
+    print("CLIENT CONNECTED:", request.sid)
 
 @socketio.on("join")
 def handle_join(data):
+    print("JOIN EVENT:", data)
     sid = request.sid
     room_name = data.get("room", "").strip().lower()[:40]
     preferred_slot = data.get("preferred_slot")  # client's remembered slot

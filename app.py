@@ -220,6 +220,13 @@ def handle_join(data):
 
     room_sessions = active_rooms[room_name]
 
+    # Remove stale/disconnected users first
+    for old_sid in list(room_sessions.keys()):
+        try:
+            socketio.server.manager.rooms["/"][old_sid]
+        except KeyError:
+            room_sessions.pop(old_sid, None)
+
     # Block third person
     if len(room_sessions) >= 2:
         emit("rejected", {"reason": "Room is full. Try again later."})
@@ -276,6 +283,7 @@ def handle_join(data):
 
 @socketio.on("disconnect")
 def handle_disconnect():
+    print("DISCONNECTED:", request.sid)
     sid = request.sid
     # Find which room this sid belongs to
     for room_name, sessions in list(active_rooms.items()):

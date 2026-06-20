@@ -154,7 +154,7 @@
     </div>
 </div>
 
-<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script src="/static/socket.io.min.js"></script>
 <script>
 const ROOM_NAME      = "{{ room_name }}";
 const VAPID_PUB_KEY  = "{{ vapid_public_key }}";
@@ -172,7 +172,7 @@ const dot        = document.getElementById('status-dot');
 const notifBtn   = document.getElementById('notif-btn');
 
 const socket = io(window.location.origin, {
-    transports: ['polling']
+    transports: ['polling', 'websocket']
 });
 
 // ── Helpers ──────────────────────────────────
